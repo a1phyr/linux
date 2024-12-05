@@ -128,7 +128,7 @@ struct RustMiscDeviceModule {
 }
 
 impl kernel::InPlaceModule for RustMiscDeviceModule {
-    fn init(_module: &'static ThisModule) -> impl PinInit<Self, Error> {
+    fn init(_module: &'static ThisModule) -> impl PinInit<Self, Error = Error> {
         pr_info!("Initialising Rust Misc Device Sample\n");
 
         let options = MiscDeviceOptions {

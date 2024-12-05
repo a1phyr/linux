@@ -111,11 +111,11 @@ pub trait InPlaceModule: Sync + Send {
     /// Creates an initialiser for the module.
     ///
     /// It is called when the module is loaded.
-    fn init(module: &'static ThisModule) -> impl init::PinInit<Self, error::Error>;
+    fn init(module: &'static ThisModule) -> impl init::PinInit<Self, Error = error::Error>;
 }
 
 impl<T: Module> InPlaceModule for T {
-    fn init(module: &'static ThisModule) -> impl init::PinInit<Self, error::Error> {
+    fn init(module: &'static ThisModule) -> impl init::PinInit<Self, Error = error::Error> {
         let initer = move |slot: *mut Self| {
             let m = <Self as Module>::init(module)?;
 

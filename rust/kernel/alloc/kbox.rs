@@ -307,7 +307,10 @@ where
 {
     type Initialized = Box<T, A>;
 
-    fn write_init<E>(mut self, init: impl Init<T, E>) -> Result<Self::Initialized, E> {
+    fn write_init<I>(mut self, init: I) -> Result<Self::Initialized, I::Error>
+    where
+        I: Init<T>,
+    {
         let slot = self.as_mut_ptr();
         // SAFETY: When init errors/panics, slot will get deallocated but not dropped,
         // slot is valid.
@@ -316,7 +319,10 @@ where
         Ok(unsafe { Box::assume_init(self) })
     }
 
-    fn write_pin_init<E>(mut self, init: impl PinInit<T, E>) -> Result<Pin<Self::Initialized>, E> {
+    fn write_pin_init<I>(mut self, init: I) -> Result<Pin<Self::Initialized>, I::Error>
+    where
+        I: PinInit<T>,
+    {
         let slot = self.as_mut_ptr();
         // SAFETY: When init errors/panics, slot will get deallocated but not dropped,
         // slot is valid and will not be moved, because we pin it later.
@@ -333,17 +339,19 @@ where
     type PinnedSelf = Pin<Self>;
 
     #[inline]
-    fn try_pin_init<E>(init: impl PinInit<T, E>, flags: Flags) -> Result<Pin<Self>, E>
+    fn try_pin_init<I>(init: I, flags: Flags) -> Result<Self::PinnedSelf, I::Error>
     where
-        E: From<AllocError>,
+        I: PinInit<T>,
+        I::Error: From<AllocError>,
     {
         Box::<_, A>::new_uninit(flags)?.write_pin_init(init)
     }
 
     #[inline]
-    fn try_init<E>(init: impl Init<T, E>, flags: Flags) -> Result<Self, E>
+    fn try_init<I>(init: I, flags: Flags) -> Result<Self, I::Error>
     where
-        E: From<AllocError>,
+        I: Init<T>,
+        I::Error: From<AllocError>,
     {
         Box::<_, A>::new_uninit(flags)?.write_init(init)
     }

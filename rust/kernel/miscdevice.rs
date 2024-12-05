@@ -62,7 +62,7 @@ unsafe impl<T> Sync for MiscDeviceRegistration<T> {}
 
 impl<T: MiscDevice> MiscDeviceRegistration<T> {
     /// Register a misc device.
-    pub fn register(opts: MiscDeviceOptions) -> impl PinInit<Self, Error> {
+    pub fn register(opts: MiscDeviceOptions) -> impl PinInit<Self, Error = Error> {
         try_pin_init!(Self {
             inner: Opaque::try_ffi_init(move |slot: *mut bindings::miscdevice| {
                 // SAFETY: The initializer can write to the provided `slot`.

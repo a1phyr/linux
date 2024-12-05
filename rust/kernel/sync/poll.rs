@@ -11,7 +11,7 @@ use crate::{
     sync::{CondVar, LockClassKey},
     types::Opaque,
 };
-use core::ops::Deref;
+use core::{convert::Infallible, ops::Deref};
 
 /// Creates a [`PollCondVar`] initialiser with the given name and a newly-created lock class.
 #[macro_export]
@@ -89,7 +89,10 @@ pub struct PollCondVar {
 
 impl PollCondVar {
     /// Constructs a new condvar initialiser.
-    pub fn new(name: &'static CStr, key: &'static LockClassKey) -> impl PinInit<Self> {
+    pub fn new(
+        name: &'static CStr,
+        key: &'static LockClassKey,
+    ) -> impl PinInit<Self, Error = Infallible> {
         pin_init!(Self {
             inner: CondVar::new(name, key),
         })

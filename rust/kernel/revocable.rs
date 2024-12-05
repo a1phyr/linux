@@ -7,6 +7,7 @@
 
 use crate::{bindings, prelude::*, sync::rcu, types::Opaque};
 use core::{
+    convert::Infallible,
     marker::PhantomData,
     ops::Deref,
     ptr::drop_in_place,
@@ -80,7 +81,9 @@ unsafe impl<T: Sync + Send> Sync for Revocable<T> {}
 
 impl<T> Revocable<T> {
     /// Creates a new revocable instance of the given data.
-    pub fn new(data: impl PinInit<T>) -> impl PinInit<Self> {
+    pub fn new(
+        data: impl PinInit<T, Error = Infallible>,
+    ) -> impl PinInit<Self, Error = Infallible> {
         pin_init!(Self {
             is_available: AtomicBool::new(true),
             data: Opaque::pin_init(data),

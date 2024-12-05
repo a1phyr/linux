@@ -70,7 +70,10 @@ unsafe impl<T: RegistrationOps> Send for Registration<T> {}
 
 impl<T: RegistrationOps> Registration<T> {
     /// Creates a new instance of the registration object.
-    pub fn new(name: &'static CStr, module: &'static ThisModule) -> impl PinInit<Self, Error> {
+    pub fn new(
+        name: &'static CStr,
+        module: &'static ThisModule,
+    ) -> impl PinInit<Self, Error = Error> {
         try_pin_init!(Self {
             reg: Opaque::try_ffi_init(|ptr: *mut T::RegType| {
                 // SAFETY: `try_ffi_init` guarantees that `ptr` is valid for write.
@@ -114,7 +117,7 @@ macro_rules! module_driver {
         impl $crate::InPlaceModule for DriverModule {
             fn init(
                 module: &'static $crate::ThisModule
-            ) -> impl $crate::init::PinInit<Self, $crate::error::Error> {
+            ) -> impl $crate::init::PinInit<Self, Error = $crate::error::Error> {
                 $crate::try_pin_init!(Self {
                     _driver: $crate::driver::Registration::new(
                         <Self as $crate::ModuleMetadata>::NAME,

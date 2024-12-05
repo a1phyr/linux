@@ -23,7 +23,7 @@ pub(crate) struct InitClosure<F, T: ?Sized, E>(pub(crate) F, pub(crate) Invarian
 
 // SAFETY: While constructing the `InitClosure`, the user promised that it upholds the
 // `__init` invariants.
-unsafe impl<T: ?Sized, F, E> Init<T, E> for InitClosure<F, T, E>
+unsafe impl<T: ?Sized, F, E> Init<T> for InitClosure<F, T, E>
 where
     F: FnOnce(*mut T) -> Result<(), E>,
 {
@@ -35,10 +35,12 @@ where
 
 // SAFETY: While constructing the `InitClosure`, the user promised that it upholds the
 // `__pinned_init` invariants.
-unsafe impl<T: ?Sized, F, E> PinInit<T, E> for InitClosure<F, T, E>
+unsafe impl<T: ?Sized, F, E> PinInit<T> for InitClosure<F, T, E>
 where
     F: FnOnce(*mut T) -> Result<(), E>,
 {
+    type Error = E;
+
     #[inline]
     unsafe fn __pinned_init(self, slot: *mut T) -> Result<(), E> {
         (self.0)(slot)
@@ -167,7 +169,10 @@ impl<T> StackInit<T> {
 
     /// Initializes the contents and returns the result.
     #[inline]
-    pub fn init<E>(self: Pin<&mut Self>, init: impl PinInit<T, E>) -> Result<Pin<&mut T>, E> {
+    pub fn init<I>(self: Pin<&mut Self>, init: I) -> Result<Pin<&mut T>, I::Error>
+    where
+        I: PinInit<T>,
+    {
         // SAFETY: We never move out of `this`.
         let this = unsafe { Pin::into_inner_unchecked(self) };
         // The value is currently initialized, so it needs to be dropped before we can reuse
@@ -257,7 +262,8 @@ impl<T: ?Sized> Default for AlwaysFail<T> {
 }
 
 // SAFETY: `__pinned_init` always fails, which is always okay.
-unsafe impl<T: ?Sized> PinInit<T, ()> for AlwaysFail<T> {
+unsafe impl<T: ?Sized> PinInit<T> for AlwaysFail<T> {
+    type Error = ();
     unsafe fn __pinned_init(self, _slot: *mut T) -> Result<(), ()> {
         Err(())
     }
