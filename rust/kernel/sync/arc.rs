@@ -675,7 +675,7 @@ impl<T> UniqueArc<T> {
             try_init!(ArcInner {
                 // SAFETY: There are no safety requirements for this FFI call.
                 refcount: Opaque::new(unsafe { bindings::REFCOUNT_INIT(1) }),
-                data <- init::uninit::<T, AllocError>(),
+                data: init::uninit::<T, AllocError>(),
             }? AllocError),
             flags,
         )?;
