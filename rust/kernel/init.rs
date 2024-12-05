@@ -898,9 +898,10 @@ pub unsafe trait PinInit<T: ?Sized, E = Infallible>: Sized {
     ///     Ok(())
     /// });
     /// ```
-    fn pin_chain<F>(self, f: F) -> ChainPinInit<Self, F, T, E>
+    fn pin_chain<F, E2>(self, f: F) -> ChainPinInit<Self, F, T, E>
     where
-        F: FnOnce(Pin<&mut T>) -> Result<(), E>,
+        F: FnOnce(Pin<&mut T>) -> Result<(), E2>,
+        E2: From<E>,
     {
         ChainPinInit(self, f, PhantomData)
     }
@@ -913,12 +914,13 @@ pub struct ChainPinInit<I, F, T: ?Sized, E>(I, F, __internal::Invariant<(E, KBox
 // - returns `Ok(())` on successful initialization,
 // - returns `Err(err)` on error and in this case `slot` will be dropped.
 // - considers `slot` pinned.
-unsafe impl<T: ?Sized, E, I, F> PinInit<T, E> for ChainPinInit<I, F, T, E>
+unsafe impl<T: ?Sized, E, E2, I, F> PinInit<T, E2> for ChainPinInit<I, F, T, E>
 where
     I: PinInit<T, E>,
-    F: FnOnce(Pin<&mut T>) -> Result<(), E>,
+    F: FnOnce(Pin<&mut T>) -> Result<(), E2>,
+    E2: From<E>,
 {
-    unsafe fn __pinned_init(self, slot: *mut T) -> Result<(), E> {
+    unsafe fn __pinned_init(self, slot: *mut T) -> Result<(), E2> {
         // SAFETY: All requirements fulfilled since this function is `__pinned_init`.
         unsafe { self.0.__pinned_init(slot)? };
         // SAFETY: The above call initialized `slot` and we still have unique access.
@@ -997,9 +999,10 @@ pub unsafe trait Init<T: ?Sized, E = Infallible>: PinInit<T, E> {
     ///     Ok(())
     /// });
     /// ```
-    fn chain<F>(self, f: F) -> ChainInit<Self, F, T, E>
+    fn chain<F, E2>(self, f: F) -> ChainInit<Self, F, T, E>
     where
-        F: FnOnce(&mut T) -> Result<(), E>,
+        F: FnOnce(&mut T) -> Result<(), E2>,
+        E2: From<E>,
     {
         ChainInit(self, f, PhantomData)
     }
@@ -1011,12 +1014,13 @@ pub struct ChainInit<I, F, T: ?Sized, E>(I, F, __internal::Invariant<(E, KBox<T>
 // SAFETY: The `__init` function is implemented such that it
 // - returns `Ok(())` on successful initialization,
 // - returns `Err(err)` on error and in this case `slot` will be dropped.
-unsafe impl<T: ?Sized, E, I, F> Init<T, E> for ChainInit<I, F, T, E>
+unsafe impl<T: ?Sized, E, E2, I, F> Init<T, E2> for ChainInit<I, F, T, E>
 where
     I: Init<T, E>,
-    F: FnOnce(&mut T) -> Result<(), E>,
+    F: FnOnce(&mut T) -> Result<(), E2>,
+    E2: From<E>,
 {
-    unsafe fn __init(self, slot: *mut T) -> Result<(), E> {
+    unsafe fn __init(self, slot: *mut T) -> Result<(), E2> {
         // SAFETY: All requirements fulfilled since this function is `__init`.
         unsafe { self.0.__pinned_init(slot)? };
         // SAFETY: The above call initialized `slot` and we still have unique access.
@@ -1027,12 +1031,13 @@ where
 }
 
 // SAFETY: `__pinned_init` behaves exactly the same as `__init`.
-unsafe impl<T: ?Sized, E, I, F> PinInit<T, E> for ChainInit<I, F, T, E>
+unsafe impl<T: ?Sized, E, E2, I, F> PinInit<T, E2> for ChainInit<I, F, T, E>
 where
     I: Init<T, E>,
-    F: FnOnce(&mut T) -> Result<(), E>,
+    F: FnOnce(&mut T) -> Result<(), E2>,
+    E2: From<E>,
 {
-    unsafe fn __pinned_init(self, slot: *mut T) -> Result<(), E> {
+    unsafe fn __pinned_init(self, slot: *mut T) -> Result<(), E2> {
         // SAFETY: `__init` has less strict requirements compared to `__pinned_init`.
         unsafe { self.__init(slot) }
     }
@@ -1176,8 +1181,8 @@ where
 }
 
 // SAFETY: Every type can be initialized by-value.
-unsafe impl<T, E> Init<T, E> for T {
-    unsafe fn __init(self, slot: *mut T) -> Result<(), E> {
+unsafe impl<T> Init<T> for T {
+    unsafe fn __init(self, slot: *mut T) -> Result<(), Infallible> {
         // SAFETY: TODO.
         unsafe { slot.write(self) };
         Ok(())
@@ -1185,8 +1190,8 @@ unsafe impl<T, E> Init<T, E> for T {
 }
 
 // SAFETY: Every type can be initialized by-value. `__pinned_init` calls `__init`.
-unsafe impl<T, E> PinInit<T, E> for T {
-    unsafe fn __pinned_init(self, slot: *mut T) -> Result<(), E> {
+unsafe impl<T> PinInit<T> for T {
+    unsafe fn __pinned_init(self, slot: *mut T) -> Result<(), Infallible> {
         // SAFETY: TODO.
         unsafe { self.__init(slot) }
     }
