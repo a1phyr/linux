@@ -52,7 +52,7 @@
 //! let a = 42;
 //! let initializer = pin_init!(Foo {
 //!     a,
-//!     b <- Bar::new(36),
+//!     b: Bar::new(36),
 //! });
 //! ```
 //!
@@ -437,7 +437,7 @@
 //! let a = 42;
 //! let initializer = pin_init!(Foo {
 //!     a,
-//!     b <- Bar::new(36),
+//!     b: Bar::new(36),
 //! });
 //! ```
 //!
