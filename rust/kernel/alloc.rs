@@ -28,6 +28,13 @@ pub use self::kvec::Vec;
 /// Indicates an allocation error.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct AllocError;
+
+impl From<core::convert::Infallible> for AllocError {
+    fn from(e: core::convert::Infallible) -> AllocError {
+        match e {}
+    }
+}
+
 use core::{alloc::Layout, ptr::NonNull};
 
 /// Flags to be used when allocating memory.
