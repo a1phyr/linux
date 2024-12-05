@@ -995,22 +995,28 @@ macro_rules! __pin_data {
         {
             $(
                 $(#[$($p_attr)*])*
-                $pvis unsafe fn $p_field<E>(
+                $pvis unsafe fn $p_field<I>(
                     self,
                     slot: *mut $p_type,
-                    init: impl $crate::init::PinInit<$p_type, E>,
-                ) -> ::core::result::Result<(), E> {
+                    init: I,
+                ) -> ::core::result::Result<(), I::Error>
+                where
+                    I: $crate::init::PinInit<$p_type>
+                {
                     // SAFETY: TODO.
                     unsafe { $crate::init::PinInit::__pinned_init(init, slot) }
                 }
             )*
             $(
                 $(#[$($attr)*])*
-                $fvis unsafe fn $field<E>(
+                $fvis unsafe fn $field<I>(
                     self,
                     slot: *mut $type,
-                    init: impl $crate::init::Init<$type, E>,
-                ) -> ::core::result::Result<(), E> {
+                    init: I,
+                ) -> ::core::result::Result<(), I::Error>
+                where
+                    I: $crate::init::Init<$type>
+                {
                     // SAFETY: TODO.
                     unsafe { $crate::init::Init::__init(init, slot) }
                 }

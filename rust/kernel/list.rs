@@ -7,6 +7,7 @@
 use crate::init::PinInit;
 use crate::sync::ArcBorrow;
 use crate::types::Opaque;
+use core::convert::Infallible;
 use core::iter::{DoubleEndedIterator, FusedIterator};
 use core::marker::PhantomData;
 use core::ptr;
@@ -159,7 +160,7 @@ unsafe impl<const ID: u64> Sync for ListLinks<ID> {}
 
 impl<const ID: u64> ListLinks<ID> {
     /// Creates a new initializer for this type.
-    pub fn new() -> impl PinInit<Self> {
+    pub fn new() -> impl PinInit<Self, Error = Infallible> {
         // INVARIANT: Pin-init initializers can't be used on an existing `Arc`, so this value will
         // not be constructed in an `Arc` that already has a `ListArc`.
         ListLinks {
@@ -216,7 +217,7 @@ impl<T: ?Sized, const ID: u64> ListLinksSelfPtr<T, ID> {
     pub const LIST_LINKS_SELF_PTR_OFFSET: usize = core::mem::offset_of!(Self, self_ptr);
 
     /// Creates a new initializer for this type.
-    pub fn new() -> impl PinInit<Self> {
+    pub fn new() -> impl PinInit<Self, Error = Infallible> {
         // INVARIANT: Pin-init initializers can't be used on an existing `Arc`, so this value will
         // not be constructed in an `Arc` that already has a `ListArc`.
         Self {

@@ -830,7 +830,10 @@ macro_rules! assert_pinned {
 /// [`Arc<T>`]: crate::sync::Arc
 /// [`Arc::pin_init`]: crate::sync::Arc::pin_init
 #[must_use = "An initializer must be used in order to create its value."]
-pub unsafe trait PinInit<T: ?Sized, E = Infallible>: Sized {
+pub unsafe trait PinInit<T: ?Sized>: Sized {
+    // The type of error that may happen during initialization.
+    type Error;
+
     /// Initializes `slot`.
     ///
     /// # Safety
@@ -839,7 +842,7 @@ pub unsafe trait PinInit<T: ?Sized, E = Infallible>: Sized {
     /// - the caller does not touch `slot` when `Err` is returned, they are only permitted to
     ///   deallocate.
     /// - `slot` will not move until it is dropped, i.e. it will be pinned.
-    unsafe fn __pinned_init(self, slot: *mut T) -> Result<(), E>;
+    unsafe fn __pinned_init(self, slot: *mut T) -> Result<(), Self::Error>;
 
     /// First initializes the value using `self` then calls the function `f` with the initialized
     /// value.
@@ -881,29 +884,31 @@ pub unsafe trait PinInit<T: ?Sized, E = Infallible>: Sized {
     ///     Ok(())
     /// });
     /// ```
-    fn pin_chain<F, E2>(self, f: F) -> ChainPinInit<Self, F, T, E>
+    fn pin_chain<F, E>(self, f: F) -> ChainPinInit<Self, F, T>
     where
-        F: FnOnce(Pin<&mut T>) -> Result<(), E2>,
-        E2: From<E>,
+        F: FnOnce(Pin<&mut T>) -> Result<(), E>,
+        E: From<Self::Error>,
     {
         ChainPinInit(self, f, PhantomData)
     }
 }
 
 /// An initializer returned by [`PinInit::pin_chain`].
-pub struct ChainPinInit<I, F, T: ?Sized, E>(I, F, __internal::Invariant<(E, KBox<T>)>);
+pub struct ChainPinInit<I, F, T: ?Sized>(I, F, __internal::Invariant<KBox<T>>);
 
 // SAFETY: The `__pinned_init` function is implemented such that it
 // - returns `Ok(())` on successful initialization,
 // - returns `Err(err)` on error and in this case `slot` will be dropped.
 // - considers `slot` pinned.
-unsafe impl<T: ?Sized, E, E2, I, F> PinInit<T, E2> for ChainPinInit<I, F, T, E>
+unsafe impl<T: ?Sized, E, I, F> PinInit<T> for ChainPinInit<I, F, T>
 where
-    I: PinInit<T, E>,
-    F: FnOnce(Pin<&mut T>) -> Result<(), E2>,
-    E2: From<E>,
+    I: PinInit<T>,
+    F: FnOnce(Pin<&mut T>) -> Result<(), E>,
+    E: From<I::Error>,
 {
-    unsafe fn __pinned_init(self, slot: *mut T) -> Result<(), E2> {
+    type Error = E;
+
+    unsafe fn __pinned_init(self, slot: *mut T) -> Result<(), E> {
         // SAFETY: All requirements fulfilled since this function is `__pinned_init`.
         unsafe { self.0.__pinned_init(slot)? };
         // SAFETY: The above call initialized `slot` and we still have unique access.
@@ -945,7 +950,7 @@ where
 ///
 /// [`Arc<T>`]: crate::sync::Arc
 #[must_use = "An initializer must be used in order to create its value."]
-pub unsafe trait Init<T: ?Sized, E = Infallible>: PinInit<T, E> {
+pub unsafe trait Init<T: ?Sized>: PinInit<T> {
     /// Initializes `slot`.
     ///
     /// # Safety
@@ -953,7 +958,7 @@ pub unsafe trait Init<T: ?Sized, E = Infallible>: PinInit<T, E> {
     /// - `slot` is a valid pointer to uninitialized memory.
     /// - the caller does not touch `slot` when `Err` is returned, they are only permitted to
     ///   deallocate.
-    unsafe fn __init(self, slot: *mut T) -> Result<(), E>;
+    unsafe fn __init(self, slot: *mut T) -> Result<(), Self::Error>;
 
     /// First initializes the value using `self` then calls the function `f` with the initialized
     /// value.
@@ -982,28 +987,27 @@ pub unsafe trait Init<T: ?Sized, E = Infallible>: PinInit<T, E> {
     ///     Ok(())
     /// });
     /// ```
-    fn chain<F, E2>(self, f: F) -> ChainInit<Self, F, T, E>
+    fn chain<F, E>(self, f: F) -> ChainInit<Self, F, T>
     where
-        F: FnOnce(&mut T) -> Result<(), E2>,
-        E2: From<E>,
+        F: FnOnce(&mut T) -> Result<(), E>,
     {
         ChainInit(self, f, PhantomData)
     }
 }
 
 /// An initializer returned by [`Init::chain`].
-pub struct ChainInit<I, F, T: ?Sized, E>(I, F, __internal::Invariant<(E, KBox<T>)>);
+pub struct ChainInit<I, F, T: ?Sized>(I, F, __internal::Invariant<KBox<T>>);
 
 // SAFETY: The `__init` function is implemented such that it
 // - returns `Ok(())` on successful initialization,
 // - returns `Err(err)` on error and in this case `slot` will be dropped.
-unsafe impl<T: ?Sized, E, E2, I, F> Init<T, E2> for ChainInit<I, F, T, E>
+unsafe impl<T: ?Sized, E, I, F> Init<T> for ChainInit<I, F, T>
 where
-    I: Init<T, E>,
-    F: FnOnce(&mut T) -> Result<(), E2>,
-    E2: From<E>,
+    I: Init<T>,
+    F: FnOnce(&mut T) -> Result<(), E>,
+    E: From<I::Error>,
 {
-    unsafe fn __init(self, slot: *mut T) -> Result<(), E2> {
+    unsafe fn __init(self, slot: *mut T) -> Result<(), E> {
         // SAFETY: All requirements fulfilled since this function is `__init`.
         unsafe { self.0.__pinned_init(slot)? };
         // SAFETY: The above call initialized `slot` and we still have unique access.
@@ -1014,13 +1018,15 @@ where
 }
 
 // SAFETY: `__pinned_init` behaves exactly the same as `__init`.
-unsafe impl<T: ?Sized, E, E2, I, F> PinInit<T, E2> for ChainInit<I, F, T, E>
+unsafe impl<T: ?Sized, E, I, F> PinInit<T> for ChainInit<I, F, T>
 where
-    I: Init<T, E>,
-    F: FnOnce(&mut T) -> Result<(), E2>,
-    E2: From<E>,
+    I: Init<T>,
+    F: FnOnce(&mut T) -> Result<(), E>,
+    E: From<I::Error>,
 {
-    unsafe fn __pinned_init(self, slot: *mut T) -> Result<(), E2> {
+    type Error = E;
+
+    unsafe fn __pinned_init(self, slot: *mut T) -> Result<(), E> {
         // SAFETY: `__init` has less strict requirements compared to `__pinned_init`.
         unsafe { self.__init(slot) }
     }
@@ -1041,7 +1047,7 @@ where
 #[inline]
 pub const unsafe fn pin_init_from_closure<T: ?Sized, E>(
     f: impl FnOnce(*mut T) -> Result<(), E>,
-) -> impl PinInit<T, E> {
+) -> impl PinInit<T, Error = E> {
     __internal::InitClosure(f, PhantomData)
 }
 
@@ -1060,7 +1066,7 @@ pub const unsafe fn pin_init_from_closure<T: ?Sized, E>(
 #[inline]
 pub const unsafe fn init_from_closure<T: ?Sized, E>(
     f: impl FnOnce(*mut T) -> Result<(), E>,
-) -> impl Init<T, E> {
+) -> impl Init<T, Error = E> {
     __internal::InitClosure(f, PhantomData)
 }
 
@@ -1068,7 +1074,7 @@ pub const unsafe fn init_from_closure<T: ?Sized, E>(
 ///
 /// The initializer is a no-op. The `slot` memory is not changed.
 #[inline]
-pub fn uninit<T, E>() -> impl Init<MaybeUninit<T>, E> {
+pub fn uninit<T>() -> impl Init<MaybeUninit<T>, Error = Infallible> {
     // SAFETY: The memory is allowed to be uninitialized.
     unsafe { init_from_closure(|_| Ok(())) }
 }
@@ -1083,11 +1089,11 @@ pub fn uninit<T, E>() -> impl Init<MaybeUninit<T>, E> {
 ///     KBox::init::<Error>(init_array_from_fn(|i| i), GFP_KERNEL).unwrap();
 /// assert_eq!(array.len(), 1_000);
 /// ```
-pub fn init_array_from_fn<I, const N: usize, T, E>(
+pub fn init_array_from_fn<I, const N: usize, T>(
     mut make_init: impl FnMut(usize) -> I,
-) -> impl Init<[T; N], E>
+) -> impl Init<[T; N], Error = I::Error>
 where
-    I: Init<T, E>,
+    I: Init<T>,
 {
     let init = move |slot: *mut [T; N]| {
         let slot = slot.cast::<T>();
@@ -1127,11 +1133,11 @@ where
 ///     Arc::pin_init(pin_init_array_from_fn(|i| new_mutex!(i)), GFP_KERNEL).unwrap();
 /// assert_eq!(array.len(), 1_000);
 /// ```
-pub fn pin_init_array_from_fn<I, const N: usize, T, E>(
+pub fn pin_init_array_from_fn<I, const N: usize, T>(
     mut make_init: impl FnMut(usize) -> I,
-) -> impl PinInit<[T; N], E>
+) -> impl PinInit<[T; N], Error = I::Error>
 where
-    I: PinInit<T, E>,
+    I: PinInit<T>,
 {
     let init = move |slot: *mut [T; N]| {
         let slot = slot.cast::<T>();
@@ -1172,6 +1178,8 @@ unsafe impl<T> Init<T> for T {
 
 // SAFETY: Every type can be initialized by-value. `__pinned_init` calls `__init`.
 unsafe impl<T> PinInit<T> for T {
+    type Error = Infallible;
+
     unsafe fn __pinned_init(self, slot: *mut T) -> Result<(), Infallible> {
         // SAFETY: TODO.
         unsafe { self.__init(slot) }
@@ -1190,39 +1198,41 @@ pub trait InPlaceInit<T>: Sized {
     /// type.
     ///
     /// If `T: !Unpin` it will not be able to move afterwards.
-    fn try_pin_init<E>(init: impl PinInit<T, E>, flags: Flags) -> Result<Self::PinnedSelf, E>
+    fn try_pin_init<I>(init: I, flags: Flags) -> Result<Self::PinnedSelf, I::Error>
     where
-        E: From<AllocError>;
+        I: PinInit<T>,
+        I::Error: From<AllocError>;
 
     /// Use the given pin-initializer to pin-initialize a `T` inside of a new smart pointer of this
     /// type.
     ///
     /// If `T: !Unpin` it will not be able to move afterwards.
-    fn pin_init<E>(init: impl PinInit<T, E>, flags: Flags) -> error::Result<Self::PinnedSelf>
+    fn pin_init<I>(init: I, flags: Flags) -> error::Result<Self::PinnedSelf>
     where
-        Error: From<E>,
+        I: PinInit<T>,
+        Error: From<I::Error>,
     {
         // SAFETY: We delegate to `init` and only change the error type.
-        let init = unsafe {
-            pin_init_from_closure(|slot| init.__pinned_init(slot).map_err(|e| Error::from(e)))
-        };
+        let init =
+            unsafe { pin_init_from_closure(|slot| init.__pinned_init(slot).map_err(Error::from)) };
         Self::try_pin_init(init, flags)
     }
 
     /// Use the given initializer to in-place initialize a `T`.
-    fn try_init<E>(init: impl Init<T, E>, flags: Flags) -> Result<Self, E>
+    fn try_init<I>(init: I, flags: Flags) -> Result<Self, I::Error>
     where
-        E: From<AllocError>;
+        I: Init<T>,
+        I::Error: From<AllocError>;
 
     /// Use the given initializer to in-place initialize a `T`.
-    fn init<E>(init: impl Init<T, E>, flags: Flags) -> error::Result<Self>
+    fn init<I>(init: I, flags: Flags) -> error::Result<Self>
     where
-        Error: From<E>,
+        I: Init<T>,
+        Error: From<I::Error>,
     {
         // SAFETY: We delegate to `init` and only change the error type.
-        let init = unsafe {
-            init_from_closure(|slot| init.__pinned_init(slot).map_err(|e| Error::from(e)))
-        };
+        let init =
+            unsafe { init_from_closure(|slot| init.__pinned_init(slot).map_err(Error::from)) };
         Self::try_init(init, flags)
     }
 }
@@ -1231,17 +1241,19 @@ impl<T> InPlaceInit<T> for Arc<T> {
     type PinnedSelf = Self;
 
     #[inline]
-    fn try_pin_init<E>(init: impl PinInit<T, E>, flags: Flags) -> Result<Self::PinnedSelf, E>
+    fn try_pin_init<I>(init: I, flags: Flags) -> Result<Self::PinnedSelf, I::Error>
     where
-        E: From<AllocError>,
+        I: PinInit<T>,
+        I::Error: From<AllocError>,
     {
         UniqueArc::try_pin_init(init, flags).map(|u| u.into())
     }
 
     #[inline]
-    fn try_init<E>(init: impl Init<T, E>, flags: Flags) -> Result<Self, E>
+    fn try_init<I>(init: I, flags: Flags) -> Result<Self, I::Error>
     where
-        E: From<AllocError>,
+        I: Init<T>,
+        I::Error: From<AllocError>,
     {
         UniqueArc::try_init(init, flags).map(|u| u.into())
     }
@@ -1251,17 +1263,19 @@ impl<T> InPlaceInit<T> for UniqueArc<T> {
     type PinnedSelf = Pin<Self>;
 
     #[inline]
-    fn try_pin_init<E>(init: impl PinInit<T, E>, flags: Flags) -> Result<Self::PinnedSelf, E>
+    fn try_pin_init<I>(init: I, flags: Flags) -> Result<Self::PinnedSelf, I::Error>
     where
-        E: From<AllocError>,
+        I: PinInit<T>,
+        I::Error: From<AllocError>,
     {
         UniqueArc::new_uninit(flags)?.write_pin_init(init)
     }
 
     #[inline]
-    fn try_init<E>(init: impl Init<T, E>, flags: Flags) -> Result<Self, E>
+    fn try_init<I>(init: I, flags: Flags) -> Result<Self, I::Error>
     where
-        E: From<AllocError>,
+        I: Init<T>,
+        I::Error: From<AllocError>,
     {
         UniqueArc::new_uninit(flags)?.write_init(init)
     }
@@ -1275,18 +1289,25 @@ pub trait InPlaceWrite<T> {
     /// Use the given initializer to write a value into `self`.
     ///
     /// Does not drop the current value and considers it as uninitialized memory.
-    fn write_init<E>(self, init: impl Init<T, E>) -> Result<Self::Initialized, E>;
+    fn write_init<I>(self, init: I) -> Result<Self::Initialized, I::Error>
+    where
+        I: Init<T>;
 
     /// Use the given pin-initializer to write a value into `self`.
     ///
     /// Does not drop the current value and considers it as uninitialized memory.
-    fn write_pin_init<E>(self, init: impl PinInit<T, E>) -> Result<Pin<Self::Initialized>, E>;
+    fn write_pin_init<I>(self, init: I) -> Result<Pin<Self::Initialized>, I::Error>
+    where
+        I: PinInit<T>;
 }
 
 impl<T> InPlaceWrite<T> for UniqueArc<MaybeUninit<T>> {
     type Initialized = UniqueArc<T>;
 
-    fn write_init<E>(mut self, init: impl Init<T, E>) -> Result<Self::Initialized, E> {
+    fn write_init<I>(mut self, init: I) -> Result<Self::Initialized, I::Error>
+    where
+        I: Init<T>,
+    {
         let slot = self.as_mut_ptr();
         // SAFETY: When init errors/panics, slot will get deallocated but not dropped,
         // slot is valid.
@@ -1295,7 +1316,10 @@ impl<T> InPlaceWrite<T> for UniqueArc<MaybeUninit<T>> {
         Ok(unsafe { self.assume_init() })
     }
 
-    fn write_pin_init<E>(mut self, init: impl PinInit<T, E>) -> Result<Pin<Self::Initialized>, E> {
+    fn write_pin_init<I>(mut self, init: I) -> Result<Pin<Self::Initialized>, I::Error>
+    where
+        I: PinInit<T>,
+    {
         let slot = self.as_mut_ptr();
         // SAFETY: When init errors/panics, slot will get deallocated but not dropped,
         // slot is valid and will not be moved, because we pin it later.
@@ -1360,7 +1384,7 @@ pub unsafe trait Zeroable {}
 ///
 /// The returned initializer will write `0x00` to every byte of the given `slot`.
 #[inline]
-pub fn zeroed<T: Zeroable>() -> impl Init<T> {
+pub fn zeroed<T: Zeroable>() -> impl Init<T, Error = Infallible> {
     // SAFETY: Because `T: Zeroable`, all bytes zero is a valid bit pattern for `T`
     // and because we write all zeroes, the memory is initialized.
     unsafe {
