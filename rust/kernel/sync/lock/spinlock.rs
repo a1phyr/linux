@@ -50,7 +50,7 @@ pub use new_spinlock;
 ///     fn new() -> impl PinInit<Self> {
 ///         pin_init!(Self {
 ///             c: 10,
-///             d <- new_spinlock!(Inner { a: 20, b: 30 }),
+///             d: new_spinlock!(Inner { a: 20, b: 30 }),
 ///         })
 ///     }
 /// }

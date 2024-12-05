@@ -31,8 +31,7 @@
 //! If you want to use [`PinInit`], then you will have to annotate your `struct` with
 //! `#[`[`pin_data`]`]`. It is a macro that uses `#[pin]` as a marker for
 //! [structurally pinned fields]. After doing this, you can then create an in-place constructor via
-//! [`pin_init!`]. The syntax is almost the same as normal `struct` initializers. The difference is
-//! that you need to write `<-` instead of `:` for fields that you want to initialize in-place.
+//! [`pin_init!`]. The syntax the same as normal `struct` initializers.
 //!
 //! ```rust
 //! # #![expect(clippy::disallowed_names)]
@@ -46,7 +45,7 @@
 //! }
 //!
 //! let foo = pin_init!(Foo {
-//!     a <- new_mutex!(42, "Foo::a"),
+//!     a: new_mutex!(42, "Foo::a"),
 //!     b: 24,
 //! });
 //! ```
@@ -65,7 +64,7 @@
 //! #     b: u32,
 //! # }
 //! # let foo = pin_init!(Foo {
-//! #     a <- new_mutex!(42, "Foo::a"),
+//! #     a: new_mutex!(42, "Foo::a"),
 //! #     b: 24,
 //! # });
 //! let foo: Result<Pin<KBox<Foo>>> = KBox::pin_init(foo, GFP_KERNEL);
@@ -98,7 +97,7 @@
 //! impl DriverData {
 //!     fn new() -> impl PinInit<Self, Error> {
 //!         try_pin_init!(Self {
-//!             status <- new_mutex!(0, "DriverData::status"),
+//!             status: new_mutex!(0, "DriverData::status"),
 //!             buffer: KBox::init(kernel::init::zeroed(), GFP_KERNEL)?,
 //!         })
 //!     }
@@ -253,7 +252,7 @@ pub mod macros;
 /// }
 ///
 /// stack_pin_init!(let foo = pin_init!(Foo {
-///     a <- new_mutex!(42),
+///     a: new_mutex!(42),
 ///     b: Bar {
 ///         x: 64,
 ///     },
@@ -313,7 +312,7 @@ macro_rules! stack_pin_init {
 /// }
 ///
 /// stack_try_pin_init!(let foo: Result<Pin<&mut Foo>, AllocError> = pin_init!(Foo {
-///     a <- new_mutex!(42),
+///     a: new_mutex!(42),
 ///     b: KBox::new(Bar {
 ///         x: 64,
 ///     }, GFP_KERNEL)?,
@@ -347,7 +346,7 @@ macro_rules! stack_pin_init {
 /// }
 ///
 /// stack_try_pin_init!(let foo: Pin<&mut Foo> =? pin_init!(Foo {
-///     a <- new_mutex!(42),
+///     a: new_mutex!(42),
 ///     b: KBox::new(Bar {
 ///         x: 64,
 ///     }, GFP_KERNEL)?,
@@ -514,23 +513,23 @@ macro_rules! stack_try_pin_init {
 /// impl FooContainer {
 ///     fn new(other: u32) -> impl PinInit<Self> {
 ///         pin_init!(Self {
-///             foo1 <- Foo::new(),
-///             foo2 <- Foo::new(),
+///             foo1: Foo::new(),
+///             foo2: Foo::new(),
 ///             other,
 ///         })
 ///     }
 /// }
 /// ```
 ///
-/// Here we see that when using `pin_init!` with `PinInit`, one needs to write `<-` instead of `:`.
-/// This signifies that the given field is initialized in-place. As with `struct` initializers, just
-/// writing the field (in this case `other`) without `:` or `<-` means `other: other,`.
+/// Any value that implements `Pin<T, E>` can be used to initialize a field of type `T` (given that
+/// error types are compatible). This is always the case for a value of type `T` thanks to blanket
+/// impl. As with `struct` initializers, just writing the field (in this case `other`) without `:`
+/// means `other: other,`.
 ///
 /// # Syntax
 ///
 /// As already mentioned in the examples above, inside of `pin_init!` a `struct` initializer with
 /// the following modifications is expected:
-/// - Fields that you want to initialize in-place have to use `<-` instead of `:`.
 /// - In front of the initializer you can write `&this in` to have access to a [`NonNull<Self>`]
 ///   pointer named `this` inside of the initializer.
 /// - Using struct update syntax one can place `..Zeroable::zeroed()` at the very end of the
@@ -888,7 +887,7 @@ pub unsafe trait PinInit<T: ?Sized, E = Infallible>: Sized {
     ///
     /// let foo = pin_init!(Foo {
     ///     // SAFETY: TODO.
-    ///     raw <- unsafe {
+    ///     raw: unsafe {
     ///         Opaque::ffi_init(|s| {
     ///             init_foo(s);
     ///         })
@@ -993,7 +992,7 @@ pub unsafe trait Init<T: ?Sized, E = Infallible>: PinInit<T, E> {
     /// }
     ///
     /// let foo = init!(Foo {
-    ///     buf <- init::zeroed()
+    ///     buf: init::zeroed()
     /// }).chain(|foo| {
     ///     foo.setup();
     ///     Ok(())

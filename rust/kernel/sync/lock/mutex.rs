@@ -52,7 +52,7 @@ pub use new_mutex;
 ///     fn new() -> impl PinInit<Self> {
 ///         pin_init!(Self {
 ///             c: 10,
-///             d <- new_mutex!(Inner { a: 20, b: 30 }),
+///             d: new_mutex!(Inner { a: 20, b: 30 }),
 ///         })
 ///     }
 /// }
