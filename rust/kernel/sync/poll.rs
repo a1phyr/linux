@@ -91,7 +91,7 @@ impl PollCondVar {
     /// Constructs a new condvar initialiser.
     pub fn new(name: &'static CStr, key: &'static LockClassKey) -> impl PinInit<Self> {
         pin_init!(Self {
-            inner <- CondVar::new(name, key),
+            inner: CondVar::new(name, key),
         })
     }
 }
