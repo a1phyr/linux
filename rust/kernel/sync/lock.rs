@@ -12,7 +12,7 @@ use crate::{
     str::CStr,
     types::{NotThreadSafe, Opaque, ScopeGuard},
 };
-use core::{cell::UnsafeCell, marker::PhantomPinned};
+use core::{cell::UnsafeCell, convert::Infallible, marker::PhantomPinned};
 use macros::pin_data;
 
 pub mod mutex;
@@ -129,7 +129,11 @@ unsafe impl<T: ?Sized + Send, B: Backend> Sync for Lock<T, B> {}
 
 impl<T, B: Backend> Lock<T, B> {
     /// Constructs a new lock initialiser.
-    pub fn new(t: T, name: &'static CStr, key: &'static LockClassKey) -> impl PinInit<Self> {
+    pub fn new(
+        t: T,
+        name: &'static CStr,
+        key: &'static LockClassKey,
+    ) -> impl PinInit<Self, Error = Infallible> {
         pin_init!(Self {
             data: UnsafeCell::new(t),
             _pin: PhantomPinned,

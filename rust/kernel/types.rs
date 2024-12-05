@@ -5,6 +5,7 @@
 use crate::init::{self, PinInit};
 use core::{
     cell::UnsafeCell,
+    convert::Infallible,
     marker::{PhantomData, PhantomPinned},
     mem::{ManuallyDrop, MaybeUninit},
     ops::{Deref, DerefMut},
@@ -334,11 +335,11 @@ impl<T> Opaque<T> {
     /// This function is safe, because the `T` inside of an `Opaque` is allowed to be
     /// uninitialized. Additionally, access to the inner `T` requires `unsafe`, so the caller needs
     /// to verify at that point that the inner value is valid.
-    pub fn ffi_init(init_func: impl FnOnce(*mut T)) -> impl PinInit<Self> {
+    pub fn ffi_init(init_func: impl FnOnce(*mut T)) -> impl PinInit<Self, Error = Infallible> {
         // SAFETY: We contain a `MaybeUninit`, so it is OK for the `init_func` to not fully
         // initialize the `T`.
         unsafe {
-            init::pin_init_from_closure::<_, ::core::convert::Infallible>(move |slot| {
+            init::pin_init_from_closure(move |slot| {
                 init_func(Self::raw_get(slot));
                 Ok(())
             })
@@ -355,10 +356,10 @@ impl<T> Opaque<T> {
     /// to verify at that point that the inner value is valid.
     pub fn try_ffi_init<E>(
         init_func: impl FnOnce(*mut T) -> Result<(), E>,
-    ) -> impl PinInit<Self, E> {
+    ) -> impl PinInit<Self, Error = E> {
         // SAFETY: We contain a `MaybeUninit`, so it is OK for the `init_func` to not fully
         // initialize the `T`.
-        unsafe { init::pin_init_from_closure::<_, E>(move |slot| init_func(Self::raw_get(slot))) }
+        unsafe { init::pin_init_from_closure(move |slot| init_func(Self::raw_get(slot))) }
     }
 
     /// Returns a raw pointer to the opaque data.

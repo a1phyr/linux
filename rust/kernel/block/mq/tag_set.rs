@@ -38,7 +38,7 @@ impl<T: Operations> TagSet<T> {
         nr_hw_queues: u32,
         num_tags: u32,
         num_maps: u32,
-    ) -> impl PinInit<Self, error::Error> {
+    ) -> impl PinInit<Self, Error = error::Error> {
         // SAFETY: `blk_mq_tag_set` only contains integers and pointers, which
         // all are allowed to be 0.
         let tag_set: bindings::blk_mq_tag_set = unsafe { core::mem::zeroed() };

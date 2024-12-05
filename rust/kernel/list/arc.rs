@@ -7,6 +7,7 @@
 use crate::alloc::{AllocError, Flags};
 use crate::prelude::*;
 use crate::sync::{Arc, ArcBorrow, UniqueArc};
+use core::convert::Infallible;
 use core::marker::PhantomPinned;
 use core::ops::Deref;
 use core::pin::Pin;
@@ -180,9 +181,10 @@ impl<T: ListArcSafe<ID>, const ID: u64> ListArc<T, ID> {
     // We don't implement `InPlaceInit` because `ListArc` is implicitly pinned. This is similar to
     // what we do for `Arc`.
     #[inline]
-    pub fn pin_init<E>(init: impl PinInit<T, E>, flags: Flags) -> Result<Self, E>
+    pub fn pin_init<I>(init: I, flags: Flags) -> Result<Self, I::Error>
     where
-        E: From<AllocError>,
+        I: PinInit<T>,
+        I::Error: From<AllocError>,
     {
         Ok(Self::from(UniqueArc::try_pin_init(init, flags)?))
     }
@@ -191,9 +193,10 @@ impl<T: ListArcSafe<ID>, const ID: u64> ListArc<T, ID> {
     ///
     /// This is equivalent to [`ListArc<T>::pin_init`], since a [`ListArc`] is always pinned.
     #[inline]
-    pub fn init<E>(init: impl Init<T, E>, flags: Flags) -> Result<Self, E>
+    pub fn init<I>(init: I, flags: Flags) -> Result<Self, I::Error>
     where
-        E: From<AllocError>,
+        I: Init<T>,
+        I::Error: From<AllocError>,
     {
         Ok(Self::from(UniqueArc::try_init(init, flags)?))
     }
@@ -476,7 +479,7 @@ pub struct AtomicTracker<const ID: u64 = 0> {
 
 impl<const ID: u64> AtomicTracker<ID> {
     /// Creates a new initializer for this type.
-    pub fn new() -> impl PinInit<Self> {
+    pub fn new() -> impl PinInit<Self, Error = Infallible> {
         // INVARIANT: Pin-init initializers can't be used on an existing `Arc`, so this value will
         // not be constructed in an `Arc` that already has a `ListArc`.
         Self {

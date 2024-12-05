@@ -671,11 +671,11 @@ impl<T> UniqueArc<T> {
     /// Tries to allocate a new [`UniqueArc`] instance whose contents are not initialised yet.
     pub fn new_uninit(flags: Flags) -> Result<UniqueArc<MaybeUninit<T>>, AllocError> {
         // INVARIANT: The refcount is initialised to a non-zero value.
-        let inner = KBox::try_init::<AllocError>(
+        let inner = KBox::try_init(
             try_init!(ArcInner {
                 // SAFETY: There are no safety requirements for this FFI call.
                 refcount: Opaque::new(unsafe { bindings::REFCOUNT_INIT(1) }),
-                data: init::uninit::<T, AllocError>(),
+                data: init::uninit::<T>(),
             }? AllocError),
             flags,
         )?;
@@ -711,7 +711,10 @@ impl<T> UniqueArc<MaybeUninit<T>> {
     }
 
     /// Initialize `self` using the given initializer.
-    pub fn init_with<E>(mut self, init: impl Init<T, E>) -> core::result::Result<UniqueArc<T>, E> {
+    pub fn init_with<I>(mut self, init: I) -> core::result::Result<UniqueArc<T>, I::Error>
+    where
+        I: Init<T>,
+    {
         // SAFETY: The supplied pointer is valid for initialization.
         match unsafe { init.__init(self.as_mut_ptr()) } {
             // SAFETY: Initialization completed successfully.
@@ -721,10 +724,10 @@ impl<T> UniqueArc<MaybeUninit<T>> {
     }
 
     /// Pin-initialize `self` using the given pin-initializer.
-    pub fn pin_init_with<E>(
-        mut self,
-        init: impl PinInit<T, E>,
-    ) -> core::result::Result<Pin<UniqueArc<T>>, E> {
+    pub fn pin_init_with<I>(mut self, init: I) -> core::result::Result<Pin<UniqueArc<T>>, I::Error>
+    where
+        I: PinInit<T>,
+    {
         // SAFETY: The supplied pointer is valid for initialization and we will later pin the value
         // to ensure it does not move.
         match unsafe { init.__pinned_init(self.as_mut_ptr()) } {
