@@ -1202,81 +1202,6 @@ macro_rules! __init_internal {
         @slot($slot:ident),
         @guards($($guards:ident,)*),
         // In-place initialization syntax.
-        @munch_fields($field:ident <- $val:expr, $($rest:tt)*),
-    ) => {
-        {
-            #[deprecated = "Use of `<-` syntax is deprecated, please use `:` instead"]
-            const USE_OF_DEPRECATED_ARROW_SYNTAX: () = ();
-            let _ = USE_OF_DEPRECATED_ARROW_SYNTAX;
-        }
-
-        let init = $val;
-        // Call the initializer.
-        //
-        // SAFETY: `slot` is valid, because we are inside of an initializer closure, we
-        // return when an error/panic occurs.
-        // We also use the `data` to require the correct trait (`Init` or `PinInit`) for `$field`.
-        unsafe { $data.$field(::core::ptr::addr_of_mut!((*$slot).$field), init)? };
-        // Create the drop guard:
-        //
-        // We rely on macro hygiene to make it impossible for users to access this local variable.
-        // We use `paste!` to create new hygiene for `$field`.
-        ::kernel::macros::paste! {
-            // SAFETY: We forget the guard later when initialization has succeeded.
-            let [< __ $field _guard >] = unsafe {
-                $crate::init::__internal::DropGuard::new(::core::ptr::addr_of_mut!((*$slot).$field))
-            };
-
-            $crate::__init_internal!(init_slot($use_data):
-                @data($data),
-                @slot($slot),
-                @guards([< __ $field _guard >], $($guards,)*),
-                @munch_fields($($rest)*),
-            );
-        }
-    };
-    (init_slot(): // No `use_data`, so we use `Init::__init` directly.
-        @data($data:ident),
-        @slot($slot:ident),
-        @guards($($guards:ident,)*),
-        // In-place initialization syntax.
-        @munch_fields($field:ident <- $val:expr, $($rest:tt)*),
-    ) => {
-        {
-            #[deprecated = "Use of `<-` syntax is deprecated, please use `:` instead"]
-            const USE_OF_DEPRECATED_ARROW_SYNTAX: () = ();
-            let _ = USE_OF_DEPRECATED_ARROW_SYNTAX;
-        }
-
-        let init = $val;
-        // Call the initializer.
-        //
-        // SAFETY: `slot` is valid, because we are inside of an initializer closure, we
-        // return when an error/panic occurs.
-        unsafe { $crate::init::Init::__init(init, ::core::ptr::addr_of_mut!((*$slot).$field))? };
-        // Create the drop guard:
-        //
-        // We rely on macro hygiene to make it impossible for users to access this local variable.
-        // We use `paste!` to create new hygiene for `$field`.
-        ::kernel::macros::paste! {
-            // SAFETY: We forget the guard later when initialization has succeeded.
-            let [< __ $field _guard >] = unsafe {
-                $crate::init::__internal::DropGuard::new(::core::ptr::addr_of_mut!((*$slot).$field))
-            };
-
-            $crate::__init_internal!(init_slot():
-                @data($data),
-                @slot($slot),
-                @guards([< __ $field _guard >], $($guards,)*),
-                @munch_fields($($rest)*),
-            );
-        }
-    };
-    (init_slot($use_data:ident): // `use_data` is present, so we use the `data` to init fields.
-        @data($data:ident),
-        @slot($slot:ident),
-        @guards($($guards:ident,)*),
-        // In-place initialization syntax.
         @munch_fields($field:ident $(: $val:expr)?, $($rest:tt)*),
     ) => {
         $(let $field = $val;)?
@@ -1388,19 +1313,6 @@ macro_rules! __init_internal {
                 });
             );
         }
-    };
-    (make_initializer:
-        @slot($slot:ident),
-        @type_name($t:path),
-        @munch_fields($field:ident <- $val:expr, $($rest:tt)*),
-        @acc($($acc:tt)*),
-    ) => {
-        $crate::__init_internal!(make_initializer:
-            @slot($slot),
-            @type_name($t),
-            @munch_fields($($rest)*),
-            @acc($($acc)* $field: ::core::panic!(),),
-        );
     };
     (make_initializer:
         @slot($slot:ident),
