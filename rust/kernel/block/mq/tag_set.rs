@@ -64,7 +64,7 @@ impl<T: Operations> TagSet<T> {
                 // SAFETY: we do not move out of `tag_set`.
                 let tag_set = unsafe { Pin::get_unchecked_mut(tag_set) };
                 // SAFETY: `tag_set` is a reference to an initialized `blk_mq_tag_set`.
-                error::to_result( unsafe { bindings::blk_mq_alloc_tag_set(tag_set.get())})
+                error::to_result(unsafe { bindings::blk_mq_alloc_tag_set(tag_set.get()) })
             }),
             _p: PhantomData,
         })
