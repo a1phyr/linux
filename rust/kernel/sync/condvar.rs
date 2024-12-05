@@ -106,7 +106,7 @@ impl CondVar {
             _pin: PhantomPinned,
             // SAFETY: `slot` is valid while the closure is called and both `name` and `key` have
             // static lifetimes so they live indefinitely.
-            wait_queue_head <- Opaque::ffi_init(|slot| unsafe {
+            wait_queue_head: Opaque::ffi_init(|slot| unsafe {
                 bindings::__init_waitqueue_head(slot, name.as_char_ptr(), key.as_ptr())
             }),
         })

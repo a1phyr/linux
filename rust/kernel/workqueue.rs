@@ -215,7 +215,7 @@ impl Queue {
         func: T,
     ) -> Result<(), AllocError> {
         let init = pin_init!(ClosureWork {
-            work <- new_work!("Queue::try_spawn"),
+            work: new_work!("Queue::try_spawn"),
             func: Some(func),
         });
 
@@ -374,7 +374,7 @@ impl<T: ?Sized, const ID: u64> Work<T, ID> {
         T: WorkItem<ID>,
     {
         pin_init!(Self {
-            work <- Opaque::ffi_init(|slot| {
+            work: Opaque::ffi_init(|slot| {
                 // SAFETY: The `WorkItemPointer` implementation promises that `run` can be used as
                 // the work item function.
                 unsafe {
