@@ -1204,6 +1204,12 @@ macro_rules! __init_internal {
         // In-place initialization syntax.
         @munch_fields($field:ident <- $val:expr, $($rest:tt)*),
     ) => {
+        {
+            #[deprecated = "Use of `<-` syntax is deprecated, please use `:` instead"]
+            const USE_OF_DEPRECATED_ARROW_SYNTAX: () = ();
+            let _ = USE_OF_DEPRECATED_ARROW_SYNTAX;
+        }
+
         let init = $val;
         // Call the initializer.
         //
@@ -1236,6 +1242,12 @@ macro_rules! __init_internal {
         // In-place initialization syntax.
         @munch_fields($field:ident <- $val:expr, $($rest:tt)*),
     ) => {
+        {
+            #[deprecated = "Use of `<-` syntax is deprecated, please use `:` instead"]
+            const USE_OF_DEPRECATED_ARROW_SYNTAX: () = ();
+            let _ = USE_OF_DEPRECATED_ARROW_SYNTAX;
+        }
+
         let init = $val;
         // Call the initializer.
         //
