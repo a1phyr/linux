@@ -72,7 +72,7 @@ impl<T: RegistrationOps> Registration<T> {
     /// Creates a new instance of the registration object.
     pub fn new(name: &'static CStr, module: &'static ThisModule) -> impl PinInit<Self, Error> {
         try_pin_init!(Self {
-            reg <- Opaque::try_ffi_init(|ptr: *mut T::RegType| {
+            reg: Opaque::try_ffi_init(|ptr: *mut T::RegType| {
                 // SAFETY: `try_ffi_init` guarantees that `ptr` is valid for write.
                 unsafe { ptr.write(T::RegType::default()) };
 
@@ -116,7 +116,7 @@ macro_rules! module_driver {
                 module: &'static $crate::ThisModule
             ) -> impl $crate::init::PinInit<Self, $crate::error::Error> {
                 $crate::try_pin_init!(Self {
-                    _driver <- $crate::driver::Registration::new(
+                    _driver: $crate::driver::Registration::new(
                         <Self as $crate::ModuleMetadata>::NAME,
                         module,
                     ),

@@ -60,7 +60,7 @@ impl<T: Operations> TagSet<T> {
             });
 
         try_pin_init!(TagSet {
-            inner <- Opaque::new(tag_set?).pin_chain(|tag_set| {
+            inner: Opaque::new(tag_set?).pin_chain(|tag_set| {
                 // SAFETY: we do not move out of `tag_set`.
                 let tag_set = unsafe { Pin::get_unchecked_mut(tag_set) };
                 // SAFETY: `tag_set` is a reference to an initialized `blk_mq_tag_set`.

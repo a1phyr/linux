@@ -83,7 +83,7 @@ impl<T> Revocable<T> {
     pub fn new(data: impl PinInit<T>) -> impl PinInit<Self> {
         pin_init!(Self {
             is_available: AtomicBool::new(true),
-            data <- Opaque::pin_init(data),
+            data: Opaque::pin_init(data),
         })
     }
 

@@ -101,10 +101,10 @@ pub struct Devres<T>(Arc<DevresInner<T>>);
 impl<T> DevresInner<T> {
     fn new(dev: &Device, data: T, flags: Flags) -> Result<Arc<DevresInner<T>>> {
         let inner = Arc::pin_init(
-            pin_init!( DevresInner {
+            pin_init!(DevresInner {
                 dev: ARef::from(dev),
                 callback: Self::devres_callback as unsafe extern "C" fn(_),
-                data <- Revocable::new(data),
+                data: Revocable::new(data),
             }),
             flags,
         )?;
