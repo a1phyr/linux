@@ -136,7 +136,7 @@ impl kernel::InPlaceModule for RustMiscDeviceModule {
         };
 
         try_pin_init!(Self {
-            _miscdev <- MiscDeviceRegistration::register(options),
+            _miscdev: MiscDeviceRegistration::register(options),
         })
     }
 }
@@ -162,12 +162,10 @@ impl MiscDevice for RustMiscDevice {
         dev_info!(dev, "Opening Rust Misc Device Sample\n");
 
         KBox::try_pin_init(
-            try_pin_init! {
-                RustMiscDevice {
-                    inner <- new_mutex!( Inner{ value: 0_i32 } ),
-                    dev: dev,
-                }
-            },
+            try_pin_init!(RustMiscDevice {
+                inner: new_mutex!(Inner { value: 0_i32 }),
+                dev,
+            }),
             GFP_KERNEL,
         )
     }
